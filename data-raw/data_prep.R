@@ -1,6 +1,6 @@
 # =============================================================================
 # avilistr Package - Data Preparation Script
-# data-raw/prepare_data.R
+# data-raw/data_prep.R
 #
 # This script processes the raw AviList Excel file and creates clean R data objects
 # for inclusion in the avilistr package.

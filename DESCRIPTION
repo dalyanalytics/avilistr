@@ -1,0 +1,12 @@
+Package: avilistr
+Title: Access and Work with the AviList Global Avian Checklist
+Version: 0.0.0.9000
+Authors@R: 
+    person("Jasmine", "Daly", , "jasmine.dumas@gmail.com", role = c("aut", "cre"))
+Description: Provides easy access to the AviList unified global bird taxonomy and 
+    tools for taxonomic reconciliation, species lookup, and integration with other 
+    ornithological databases.
+License: CC0
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2

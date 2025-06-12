@@ -8,15 +8,20 @@
 #'
 #' @format A tibble with 33684 rows and 14 columns:
 #' \describe{{
-#'   item{Sequence}{Sequential numbering for taxonomic order}
-#'   item{Taxon_rank}{Taxonomic rank (species, subspecies, etc.)}
-#'   item{Order}{Taxonomic order}
+#'   item{Authority}{Author and year of original description}
+#'   item{AvibaseID}{Avibase database identifier}
+#'   item{Bibliographic_details}{Bibliographic details of original description}
+#'   item{Decision_summary}{Data field: Decision summary}
+#'   item{English_name_AviList}{English common name (AviList)}
+#'   item{Extinct_or_possibly_extinct}{Data field: Extinct or possibly extinct}
 #'   item{Family}{Taxonomic family}
 #'   item{Family_English_name}{English name of the family}
+#'   item{IUCN_Red_List_Category}{Data field: IUCN Red List Category}
+#'   item{Order}{Taxonomic order}
+#'   item{Range}{Data field: Range}
 #'   item{Scientific_name}{Scientific binomial name}
-#'   item{Authority}{Author and year of original description}
-#'   item{English_name_AviList}{English common name (AviList)}
-#'   item{AvibaseID}{Avibase database identifier}
+#'   item{Sequence}{Sequential numbering for taxonomic order}
+#'   item{Taxon_rank}{Taxonomic rank (species, subspecies, etc.)}
 #' }}
 #'
 #' @source AviList Core Team. 2025. AviList: The Global Avian Checklist, v2025.

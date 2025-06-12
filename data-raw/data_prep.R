@@ -1,6 +1,6 @@
 # =============================================================================
 # avilistr Package - Data Preparation Script
-# data-raw/data_prep.R
+# data-raw/prepare_data.R
 #
 # This script processes the raw AviList Excel file and creates clean R data objects
 # for inclusion in the avilistr package.
@@ -154,29 +154,96 @@ if (length(short_only_fields) > 0) {
 
 message("Creating metadata objects...")
 
-# Field descriptions (update based on actual fields found)
-avilist_metadata <- tribble(
-  ~field_name, ~description, ~data_type, ~source, ~in_short_version,
-  "Sequence", "Sequential numbering for taxonomic order", "numeric", "AviList", TRUE,
-  "Taxon_rank", "Taxonomic rank (species, subspecies, etc.)", "character", "AviList", TRUE,
-  "Order", "Taxonomic order", "character", "AviList", TRUE,
-  "Family", "Taxonomic family", "character", "AviList", TRUE,
-  "Family_English_name", "English name of the family", "character", "AviList", TRUE,
-  "Scientific_name", "Scientific binomial name", "character", "AviList", TRUE,
-  "Authority", "Author and year of original description", "character", "AviList", TRUE,
-  "English_name_AviList", "English common name (AviList)", "character", "AviList", TRUE,
-  "English_name_Clements_v2024", "English common name (Clements 2024)", "character", "Clements", FALSE,
-  "Species_code_Cornell_Lab", "Cornell Lab species code", "character", "Cornell Lab", FALSE,
-  "AvibaseID", "Avibase database identifier", "character", "Avibase", FALSE,
-  "BirdLife_DataZone_URL", "BirdLife DataZone species page URL", "character", "BirdLife", FALSE,
-  "Birds_of_the_World_URL", "Birds of the World species account URL", "character", "Cornell Lab", FALSE,
-  "Original_description_URL", "URL to original species description", "character", "Various", FALSE
+# Create comprehensive field descriptions from actual data
+message("Generating field descriptions from actual data...")
+
+# Get all fields from both datasets
+full_fields <- names(avilist_2025)
+short_fields <- names(avilist_2025_short)
+all_fields <- unique(c(full_fields, short_fields))
+
+message(paste("Full dataset has", length(full_fields), "fields"))
+message(paste("Short dataset has", length(short_fields), "fields"))
+message(paste("Total unique fields:", length(all_fields)))
+
+# Print all field names for verification
+message("All field names found:")
+print(all_fields)
+
+# Create comprehensive metadata table based on actual fields
+avilist_metadata <- tibble(
+  field_name = all_fields
 ) %>%
-  # Update based on actual fields found
   mutate(
-    in_short_version = field_name %in% names(avilist_2025_short),
-    in_full_version = field_name %in% names(avilist_2025)
-  )
+    in_full_version = field_name %in% full_fields,
+    in_short_version = field_name %in% short_fields,
+
+    # Generate descriptions based on field names (comprehensive patterns)
+    description = case_when(
+      field_name == "Sequence" ~ "Sequential numbering for taxonomic order",
+      field_name == "Taxon_rank" ~ "Taxonomic rank (species, subspecies, etc.)",
+      field_name == "Order" ~ "Taxonomic order",
+      field_name == "Family" ~ "Taxonomic family",
+      str_detect(tolower(field_name), "family.*english") ~ "English name of the family",
+      field_name == "Scientific_name" ~ "Scientific binomial name",
+      field_name == "Authority" ~ "Author and year of original description",
+      str_detect(tolower(field_name), "english.*name.*avilist") ~ "English common name (AviList)",
+      str_detect(tolower(field_name), "english.*name.*clements") ~ "English common name (Clements 2024)",
+      str_detect(tolower(field_name), "bibliographic") ~ "Bibliographic details of original description",
+      str_detect(tolower(field_name), "species.*code.*cornell") ~ "Cornell Lab species code",
+      field_name == "AvibaseID" ~ "Avibase database identifier",
+      str_detect(tolower(field_name), "birdlife.*url") ~ "BirdLife DataZone species page URL",
+      str_detect(tolower(field_name), "birds.*world.*url") ~ "Birds of the World species account URL",
+      str_detect(tolower(field_name), "original.*description.*url") ~ "URL to original species description",
+      str_detect(tolower(field_name), "gender.*genus") ~ "Grammatical gender of the genus name",
+      str_detect(tolower(field_name), "type.*species") ~ "Type species of the genus",
+      str_detect(tolower(field_name), "type.*locality") ~ "Type locality where species was first collected",
+      str_detect(tolower(field_name), "title.*original") ~ "Title of the original species description",
+      field_name == "Protonym" ~ "Original name as first published",
+
+      # Additional common patterns
+      str_detect(tolower(field_name), "url$") ~ paste("URL link for", str_replace(field_name, "_URL$", "")),
+      str_detect(tolower(field_name), "code") ~ paste("Species code from", str_extract(field_name, "\\w+(?=_|$)")),
+      str_detect(tolower(field_name), "id$") ~ paste("Database identifier for", str_replace(field_name, "ID$", "")),
+      str_detect(tolower(field_name), "name") ~ paste("Name field:", field_name),
+
+      # Fallback - just use the field name
+      TRUE ~ paste("Data field:", str_replace_all(field_name, "_", " "))
+    ),
+
+    # Determine data type
+    data_type = case_when(
+      field_name == "Sequence" ~ "numeric",
+      str_detect(tolower(field_name), "url") ~ "character (URL)",
+      TRUE ~ "character"
+    ),
+
+    # Determine likely source
+    source = case_when(
+      str_detect(tolower(field_name), "clements") ~ "Clements",
+      str_detect(tolower(field_name), "cornell") ~ "Cornell Lab",
+      str_detect(tolower(field_name), "birdlife") ~ "BirdLife",
+      str_detect(tolower(field_name), "avibase") ~ "Avibase",
+      str_detect(tolower(field_name), "birds.*world") ~ "Cornell Lab",
+      TRUE ~ "AviList"
+    )
+  ) %>%
+  arrange(field_name)
+
+# Print summary of field coverage
+message("\nField description summary:")
+message(paste("Fields in full version:", sum(avilist_metadata$in_full_version)))
+message(paste("Fields in short version:", sum(avilist_metadata$in_short_version)))
+
+# Show any fields that might have generic descriptions
+generic_fields <- avilist_metadata %>%
+  filter(str_detect(description, "^Data field:")) %>%
+  pull(field_name)
+
+if (length(generic_fields) > 0) {
+  message("\nFields with generic descriptions (may need manual review):")
+  print(generic_fields)
+}
 
 # Summary statistics
 avilist_stats_2025 <- list(

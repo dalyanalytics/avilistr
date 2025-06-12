@@ -1,6 +1,6 @@
 # =============================================================================
 # avilistr Package - Data Preparation Script
-# data-raw/prepare_data.R
+# data-raw/data_prep.R
 #
 # This script processes the raw AviList Excel file and creates clean R data objects
 # for inclusion in the avilistr package.
@@ -10,8 +10,8 @@ library(readxl)
 library(dplyr)
 library(stringr)
 library(tibble)
-library(usethis)
 library(tidyr)
+library(usethis)
 
 # =============================================================================
 # 1. LOAD AND CLEAN RAW DATA
@@ -23,7 +23,7 @@ message("Reading AviList Excel files...")
 # Full/extended version
 raw_avilist_full <- read_excel(
   "data-raw/AviList-v2025-11Jun-extended.xlsx",
-  sheet = "AviList v2025 extended",
+  sheet = "AviList v2025 extended", # the default sheet is the first one
   col_types = "text"  # Read everything as text initially
 )
 
@@ -95,14 +95,7 @@ avilist_2025 <- raw_avilist_full %>%
 
     # Clean species codes
     Species_code_Cornell_Lab = str_trim(Species_code_Cornell_Lab),
-    AvibaseID = str_trim(AvibaseID) #,
-
-    # Handle empty strings as NA
-    # across(everything(), ~ case_when(
-    #   .x == "" ~ NA_character_,
-    #   .x == "NA" ~ NA_character_,
-    #   TRUE ~ .x
-    # ))
+    AvibaseID = str_trim(AvibaseID)
   ) %>%
 
   # Arrange by taxonomic sequence
@@ -135,14 +128,7 @@ avilist_2025_short <- raw_avilist_short %>%
     across(c(Order, Family), ~ str_trim(.x)),
 
     # Clean authority information
-    Authority = str_trim(Authority) #,
-
-    # Handle empty strings as NA
-    # across(everything(), ~ case_when(
-    #   .x == "" ~ NA_character_,
-    #   .x == "NA" ~ NA_character_,
-    #   TRUE ~ .x
-    # ))
+    Authority = str_trim(Authority)
   ) %>%
 
   # Arrange by taxonomic sequence
@@ -297,12 +283,19 @@ family_info <- avilist_2025 %>%
 
 message("Saving data objects...")
 
+# Ensure we're in the right directory and data/ folder exists
+if (!dir.exists("data")) {
+  dir.create("data")
+  message("Created data/ directory")
+}
+
 # Save main datasets
 usethis::use_data(avilist_2025, overwrite = TRUE)
 usethis::use_data(avilist_2025_short, overwrite = TRUE)
 usethis::use_data(avilist_metadata, overwrite = TRUE)
 
-# Save internal data (not exported to users)
+# Save internal data (should go to data/sysdata.rda)
+message("Saving internal data to data/sysdata.rda...")
 usethis::use_data(
   name_variations,
   authority_patterns,
@@ -313,18 +306,30 @@ usethis::use_data(
   overwrite = TRUE
 )
 
+# Verify sysdata.rda location
+if (file.exists("data/sysdata.rda")) {
+  message("✓ Internal data saved to data/sysdata.rda")
+} else if (file.exists("R/sysdata.rda")) {
+  message("⚠ Internal data was saved to R/sysdata.rda - moving to data/")
+  file.rename("R/sysdata.rda", "data/sysdata.rda")
+} else {
+  warning("Could not locate sysdata.rda file")
+}
+
 # =============================================================================
 # 8. CREATE DOCUMENTATION STUBS
 # =============================================================================
 
 message("Creating documentation templates...")
 
-# Create data documentation template
-data_doc_template <- '
-#\' AviList Global Avian Checklist v2025
+# Create data documentation template for FULL dataset
+data_doc_template_full <- '
+#\' AviList Global Avian Checklist v2025 (Full Version)
 #\'
 #\' The complete AviList dataset containing all bird species, subspecies, and
-#\' taxonomic information as of June 2025.
+#\' taxonomic information as of June 2025. This is the extended version with
+#\' all available fields including nomenclatural details, bibliographic
+#\' information, and external database links.
 #\'
 #\' @format A tibble with {nrow} rows and {ncol} columns:
 #\' \\describe{{
@@ -333,6 +338,8 @@ data_doc_template <- '
 #\'
 #\' @source AviList Core Team. 2025. AviList: The Global Avian Checklist, v2025.
 #\'   \\url{{https://doi.org/10.2173/avilist.v2025}}
+#\'
+#\' @seealso \\code{{\\link{{avilist_2025_short}}}} for the short version with essential fields only
 #\'
 #\' @examples
 #\' # Load the full dataset
@@ -346,23 +353,82 @@ data_doc_template <- '
 #\'   filter(Taxon_rank == "species") %>%
 #\'   count(Order, sort = TRUE)
 #\'
+#\' # Access external database links
+#\' avilist_2025 %>%
+#\'   filter(!is.na(BirdLife_DataZone_URL)) %>%
+#\'   select(Scientific_name, BirdLife_DataZone_URL) %>%
+#\'   head()
+#\'
 "avilist_2025"
 '
 
-# Generate field descriptions for documentation
-field_descriptions <- avilist_metadata %>%
+# Create data documentation template for SHORT dataset
+data_doc_template_short <- '
+#\' AviList Global Avian Checklist v2025 (Short Version)
+#\'
+#\' The essential fields from the AviList dataset containing core taxonomic
+#\' information for all bird species and subspecies as of June 2025. This is
+#\' the official short version provided by the AviList team, optimized for
+#\' faster loading and basic taxonomic operations.
+#\'
+#\' @format A tibble with {nrow} rows and {ncol} columns:
+#\' \\describe{{
+{field_descriptions}
+#\' }}
+#\'
+#\' @source AviList Core Team. 2025. AviList: The Global Avian Checklist, v2025.
+#\'   \\url{{https://doi.org/10.2173/avilist.v2025}}
+#\'
+#\' @seealso \\code{{\\link{{avilist_2025}}}} for the full version with all available fields
+#\'
+#\' @examples
+#\' # Load the short dataset (faster loading)
+#\' data(avilist_2025_short)
+#\'
+#\' # View summary
+#\' str(avilist_2025_short)
+#\'
+#\' # Count species by family
+#\' avilist_2025_short %>%
+#\'   filter(Taxon_rank == "species") %>%
+#\'   count(Family, sort = TRUE) %>%
+#\'   head(10)
+#\'
+#\' # Search for species
+#\' avilist_2025_short %>%
+#\'   filter(str_detect(Scientific_name, "Turdus"))
+#\'
+"avilist_2025_short"
+'
+
+# Generate field descriptions for FULL dataset
+field_descriptions_full <- avilist_metadata %>%
+  filter(in_full_version) %>%
   mutate(desc_line = paste0("#\'   \\item{", field_name, "}{", description, "}")) %>%
   pull(desc_line) %>%
   paste(collapse = "\n")
 
-# Fill in template
-complete_doc <- str_replace_all(data_doc_template,
-                                c("\\{nrow\\}" = as.character(nrow(avilist_2025)),
-                                  "\\{ncol\\}" = as.character(ncol(avilist_2025)),
-                                  "\\{field_descriptions\\}" = field_descriptions))
+# Generate field descriptions for SHORT dataset
+field_descriptions_short <- avilist_metadata %>%
+  filter(in_short_version) %>%
+  mutate(desc_line = paste0("#\'   \\item{", field_name, "}{", description, "}")) %>%
+  pull(desc_line) %>%
+  paste(collapse = "\n")
 
-# Write documentation file
-writeLines(complete_doc, "R/avilist_2025.R")
+# Fill in templates
+complete_doc_full <- str_replace_all(data_doc_template_full,
+                                     c("\\{nrow\\}" = as.character(nrow(avilist_2025)),
+                                       "\\{ncol\\}" = as.character(ncol(avilist_2025)),
+                                       "\\{field_descriptions\\}" = field_descriptions_full))
+
+complete_doc_short <- str_replace_all(data_doc_template_short,
+                                      c("\\{nrow\\}" = as.character(nrow(avilist_2025_short)),
+                                        "\\{ncol\\}" = as.character(ncol(avilist_2025_short)),
+                                        "\\{field_descriptions\\}" = field_descriptions_short))
+
+# Write documentation files
+writeLines(complete_doc_full, "R/avilist_2025.R")
+writeLines(complete_doc_short, "R/avilist_2025_short.R")
 
 # =============================================================================
 # 9. FINAL SUMMARY
@@ -383,7 +449,8 @@ message("- data/avilist_2025.rda")
 message("- data/avilist_2025_short.rda")
 message("- data/avilist_metadata.rda")
 message("- data/sysdata.rda (internal)")
-message("- R/data.R (documentation)")
+message("- R/avilist_2025.R (full dataset documentation)")
+message("- R/avilist_2025_short.R (short dataset documentation)")
 message("\nReady for package development!")
 
 # Display top families by species count

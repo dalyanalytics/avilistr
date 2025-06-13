@@ -1,6 +1,6 @@
 # =============================================================================
 # avilistr Package - Data Preparation Script
-# data-raw/data_prep.R
+# data-raw/prepare_data.R
 #
 # This script processes the raw AviList Excel file and creates clean R data objects
 # for inclusion in the avilistr package.
@@ -391,13 +391,11 @@ data_doc_template_full <- '
 #\' all available fields including nomenclatural details, bibliographic
 #\' information, and external database links.
 #\'
-#\' @format A tibble with {nrow} rows and {ncol} columns:
-#\' \\describe{{
-{field_descriptions}
-#\' }}
+#\' @format A data frame with {nrow} rows and {ncol} columns.
+#\'   See avilist_metadata for detailed field descriptions.
 #\'
 #\' @source AviList Core Team. 2025. AviList: The Global Avian Checklist, v2025.
-#\'   \\url{https://doi.org/10.2173/avilist.v2025}
+#\'   \\doi{10.2173/avilist.v2025}
 #\'
 #\' @examples
 #\' # Load the full dataset
@@ -418,13 +416,11 @@ data_doc_template_short <- '
 #\' the official short version provided by the AviList team, optimized for
 #\' faster loading and basic taxonomic operations.
 #\'
-#\' @format A tibble with {nrow} rows and {ncol} columns:
-#\' \\describe{{
-{field_descriptions}
-#\' }}
+#\' @format A data frame with {nrow} rows and {ncol} columns.
+#\'   See avilist_metadata for detailed field descriptions.
 #\'
 #\' @source AviList Core Team. 2025. AviList: The Global Avian Checklist, v2025.
-#\'   \\url{https://doi.org/10.2173/avilist.v2025}
+#\'   \\doi{10.2173/avilist.v2025}
 #\'
 #\' @examples
 #\' # Load the short dataset (faster loading)
@@ -436,30 +432,14 @@ data_doc_template_short <- '
 "avilist_2025_short"
 '
 
-# Generate field descriptions for FULL dataset
-field_descriptions_full <- avilist_metadata %>%
-  filter(in_full_version) %>%
-  mutate(desc_line = paste0("#\'   \\\\item{", field_name, "}{", description, "}")) %>%
-  pull(desc_line) %>%
-  paste(collapse = "\n")
-
-# Generate field descriptions for SHORT dataset
-field_descriptions_short <- avilist_metadata %>%
-  filter(in_short_version) %>%
-  mutate(desc_line = paste0("#\'   \\\\item{", field_name, "}{", description, "}")) %>%
-  pull(desc_line) %>%
-  paste(collapse = "\n")
-
-# Fill in templates
+# Fill in templates (without detailed field descriptions to avoid LaTeX issues)
 complete_doc_full <- str_replace_all(data_doc_template_full,
                                      c("\\{nrow\\}" = as.character(nrow(avilist_2025)),
-                                       "\\{ncol\\}" = as.character(ncol(avilist_2025)),
-                                       "\\{field_descriptions\\}" = field_descriptions_full))
+                                       "\\{ncol\\}" = as.character(ncol(avilist_2025))))
 
 complete_doc_short <- str_replace_all(data_doc_template_short,
                                       c("\\{nrow\\}" = as.character(nrow(avilist_2025_short)),
-                                        "\\{ncol\\}" = as.character(ncol(avilist_2025_short)),
-                                        "\\{field_descriptions\\}" = field_descriptions_short))
+                                        "\\{ncol\\}" = as.character(ncol(avilist_2025_short))))
 
 # Write documentation files
 writeLines(complete_doc_full, "R/avilist_2025.R")
@@ -518,7 +498,6 @@ message("\nFiles created:")
 message("- data/avilist_2025.rda")
 message("- data/avilist_2025_short.rda")
 message("- data/avilist_metadata.rda")
-message("- data/sysdata.rda (internal)")
 message("- R/avilist_2025.R (full dataset documentation)")
 message("- R/avilist_2025_short.R (short dataset documentation)")
 message("- R/avilist_metadata.R (metadata documentation)")

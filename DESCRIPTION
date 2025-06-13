@@ -1,11 +1,15 @@
 Package: avilistr
 Title: Access and Work with the AviList Global Avian Checklist
-Version: 0.0.0.9000
-Authors@R: 
-    person("Jasmine", "Daly", , "jasmine.dumas@gmail.com", role = c("aut", "cre"))
+Version: 0.0.1
+Authors@R: c(
+    person("Jasmine", "Daly", , "jasmine.dumas@gmail.com", role = c("aut", "cre")),
+    person("AviList Core Team", role = "dtc", 
+           comment = 'Data creators, see https://www.avilist.org/about/team-profiles/'))
 Description: Provides easy access to the AviList Global Avian Checklist, 
-    the first unified global bird taxonomy that harmonizes previous differences 
-    between IOC, Clements, and BirdLife checklists.
+    the first unified global bird taxonomy that harmonizes previous 
+    differences between IOC, Clements, and BirdLife checklists. This package 
+    contains the complete AviList dataset (AviList Core Team 2025) as R data 
+    objects ready for ornithological research and analysis.
 URL: https://github.com/dalyanalytics/avilistr, https://dalyanalytics.github.io/avilistr/
 BugReports: https://github.com/dalyanalytics/avilistr/issues
 License: CC0

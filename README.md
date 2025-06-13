@@ -10,9 +10,9 @@
 [![Lifecycle:
 experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![CRAN
-status](https://www.r-pkg.org/badges/version/avilistr)](https://CRAN.R-project.org/package=avilistr)
+status](https://www.r-pkg.org/badges/version/avilistr)](https://www.r-pkg.org/badges/version/avilistr)
 [![License:
-CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](http://creativecommons.org/publicdomain/cc0/)
+CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](https://creativecommons.org/public-domain/cc0/)
 <!-- badges: end -->
 
 > **Access the AviList Global Avian Checklist in R**

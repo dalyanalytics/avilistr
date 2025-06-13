@@ -2,8 +2,8 @@
 
 ## R CMD check results
 
-── R CMD check results ──────────────────── avilistr 0.0.0.9000 ────
-Duration: 47.5s
+── R CMD check results ──────── avilistr 0.0.1 ────
+Duration: 50.3s
 
 ❯ checking installed package size ... NOTE
     installed size is  5.6Mb
@@ -22,3 +22,4 @@ AviList Global Avian Checklist dataset - the first unified
 global bird taxonomy with 33,685 records representing all 
 known bird species and subspecies. This is a foundational 
 scientific dataset for ornithological research.
+- This is a new release

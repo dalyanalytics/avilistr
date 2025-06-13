@@ -3,10 +3,10 @@ Title: Access and Work with the AviList Global Avian Checklist
 Version: 0.0.0.9000
 Authors@R: 
     person("Jasmine", "Daly", , "jasmine.dumas@gmail.com", role = c("aut", "cre"))
-Description: Provides easy access to the AviList unified global bird taxonomy and 
-    tools for taxonomic reconciliation, species lookup, and integration with other 
-    ornithological databases.
-URL: https://devtools.r-lib.org/, https://github.com/dalyanalytics/avilistr, https://dalyanalytics.github.io/avilistr/
+Description: Provides easy access to the AviList Global Avian Checklist, 
+    the first unified global bird taxonomy that harmonizes previous differences 
+    between IOC, Clements, and BirdLife checklists.
+URL: https://github.com/dalyanalytics/avilistr, https://dalyanalytics.github.io/avilistr/
 BugReports: https://github.com/dalyanalytics/avilistr/issues
 License: CC0
 Encoding: UTF-8
@@ -17,6 +17,10 @@ Depends:
 LazyData: true
 LazyDataCompression: xz
 Suggests: 
+    dplyr,
+    ggplot2,
     knitr,
-    rmarkdown
+    rmarkdown,
+    tidyverse,
+    testthat (>= 3.0.0)
 VignetteBuilder: knitr

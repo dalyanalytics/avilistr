@@ -17,9 +17,11 @@ R CMD check succeeded
 
 ## Release Commentary
 
-- Package size (5.6MB) is justified as it contains the complete 
-AviList Global Avian Checklist dataset - the first unified 
-global bird taxonomy with 33,685 records representing all 
-known bird species and subspecies. This is a foundational 
-scientific dataset for ornithological research.
 - This is a new release
+
+- Package size (5.6MB) is justified as it contains the complete AviList Global Avian Checklist dataset - the first unified global bird taxonomy with 33,685 records representing all known bird species and subspecies. This is a foundational scientific dataset for ornithological research.
+
+- AviList, BirdLife and IOC are not word misspelling. 
+  - AviList is the Harmonization Effort Group that produced the source data
+  - BirdLife is a comprehensive taxonomic checklist of the world's birds, known for its consistency, illustrations, and distribution maps
+  - IOC is the IOC World Bird List is an open access resource of the international community of ornithologists

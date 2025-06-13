@@ -6,6 +6,8 @@ Authors@R:
 Description: Provides easy access to the AviList unified global bird taxonomy and 
     tools for taxonomic reconciliation, species lookup, and integration with other 
     ornithological databases.
+URL: https://devtools.r-lib.org/, https://github.com/dalyanalytics/avilistr
+BugReports: https://github.com/dalyanalytics/avilistr/issues
 License: CC0
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -13,3 +15,4 @@ RoxygenNote: 7.3.2
 Depends: 
     R (>= 3.5)
 LazyData: true
+LazyDataCompression: xz

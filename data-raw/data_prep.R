@@ -356,32 +356,25 @@ if (!dir.exists("data")) {
   message("Created data/ directory")
 }
 
-# Save main datasets
+# Remove any existing .rda files to start clean
+existing_rda <- list.files("data/", pattern = "\\.rda$", full.names = TRUE)
+if (length(existing_rda) > 0) {
+  file.remove(existing_rda)
+  message("Removed existing .rda files")
+}
+
+# ONLY save the three main datasets that users should access
 usethis::use_data(avilist_2025, overwrite = TRUE)
 usethis::use_data(avilist_2025_short, overwrite = TRUE)
 usethis::use_data(avilist_metadata, overwrite = TRUE)
 
-# Save internal data (should go to data/sysdata.rda)
-message("Saving internal data to data/sysdata.rda...")
-usethis::use_data(
-  name_variations,
-  authority_patterns,
-  order_info,
-  family_info,
-  avilist_stats_2025,
-  internal = TRUE,
-  overwrite = TRUE
-)
+message("✓ Saved three main datasets")
 
-# Verify sysdata.rda location
-if (file.exists("data/sysdata.rda")) {
-  message("✓ Internal data saved to data/sysdata.rda")
-} else if (file.exists("R/sysdata.rda")) {
-  message("⚠ Internal data was saved to R/sysdata.rda - moving to data/")
-  file.rename("R/sysdata.rda", "data/sysdata.rda")
-} else {
-  warning("Could not locate sysdata.rda file")
-}
+# Verify final state
+final_files <- list.files("data/", pattern = "\\.rda$")
+message("Final data files:", paste(final_files, collapse = ", "))
+
+# Should only be: avilist_2025.rda, avilist_2025_short.rda, avilist_metadata.rda
 
 # =============================================================================
 # 8. CREATE DOCUMENTATION STUBS
@@ -404,9 +397,7 @@ data_doc_template_full <- '
 #\' }}
 #\'
 #\' @source AviList Core Team. 2025. AviList: The Global Avian Checklist, v2025.
-#\'   \\url{{https://doi.org/10.2173/avilist.v2025}}
-#\'
-#\' @seealso \\code{{\\link{{avilist_2025_short}}}} for the short version with essential fields only
+#\'   \\url{https://doi.org/10.2173/avilist.v2025}
 #\'
 #\' @examples
 #\' # Load the full dataset
@@ -414,18 +405,7 @@ data_doc_template_full <- '
 #\'
 #\' # View summary
 #\' str(avilist_2025)
-#\'
-#\' # Count species by order
-#\' avilist_2025 %>%
-#\'   filter(Taxon_rank == "species") %>%
-#\'   count(Order, sort = TRUE)
-#\'
-#\' # Access external database links
-#\' avilist_2025 %>%
-#\'   filter(!is.na(BirdLife_DataZone_URL)) %>%
-#\'   select(Scientific_name, BirdLife_DataZone_URL) %>%
-#\'   head()
-#\'
+
 "avilist_2025"
 '
 
@@ -444,9 +424,7 @@ data_doc_template_short <- '
 #\' }}
 #\'
 #\' @source AviList Core Team. 2025. AviList: The Global Avian Checklist, v2025.
-#\'   \\url{{https://doi.org/10.2173/avilist.v2025}}
-#\'
-#\' @seealso \\code{{\\link{{avilist_2025}}}} for the full version with all available fields
+#\'   \\url{https://doi.org/10.2173/avilist.v2025}
 #\'
 #\' @examples
 #\' # Load the short dataset (faster loading)
@@ -455,30 +433,20 @@ data_doc_template_short <- '
 #\' # View summary
 #\' str(avilist_2025_short)
 #\'
-#\' # Count species by family
-#\' avilist_2025_short %>%
-#\'   filter(Taxon_rank == "species") %>%
-#\'   count(Family, sort = TRUE) %>%
-#\'   head(10)
-#\'
-#\' # Search for species
-#\' avilist_2025_short %>%
-#\'   filter(str_detect(Scientific_name, "Turdus"))
-#\'
 "avilist_2025_short"
 '
 
 # Generate field descriptions for FULL dataset
 field_descriptions_full <- avilist_metadata %>%
   filter(in_full_version) %>%
-  mutate(desc_line = paste0("#\'   \\item{", field_name, "}{", description, "}")) %>%
+  mutate(desc_line = paste0("#\'   \\\\item{", field_name, "}{", description, "}")) %>%
   pull(desc_line) %>%
   paste(collapse = "\n")
 
 # Generate field descriptions for SHORT dataset
 field_descriptions_short <- avilist_metadata %>%
   filter(in_short_version) %>%
-  mutate(desc_line = paste0("#\'   \\item{", field_name, "}{", description, "}")) %>%
+  mutate(desc_line = paste0("#\'   \\\\item{", field_name, "}{", description, "}")) %>%
   pull(desc_line) %>%
   paste(collapse = "\n")
 
@@ -496,6 +464,41 @@ complete_doc_short <- str_replace_all(data_doc_template_short,
 # Write documentation files
 writeLines(complete_doc_full, "R/avilist_2025.R")
 writeLines(complete_doc_short, "R/avilist_2025_short.R")
+
+# Create avilist_metadata documentation
+metadata_doc <- '
+#\' AviList Field Metadata
+#\'
+#\' Metadata describing all fields in the AviList datasets, including
+#\' field descriptions, data types, sources, and availability in different
+#\' dataset versions.
+#\'
+#\' @format A tibble with metadata for all AviList fields:
+#\' \\describe{
+#\'   \\item{field_name}{Name of the field in the dataset}
+#\'   \\item{description}{Human-readable description of the field content}
+#\'   \\item{data_type}{Data type (character, numeric, etc.)}
+#\'   \\item{source}{Original source of the data (AviList, Clements, etc.)}
+#\'   \\item{in_full_version}{Logical, whether field is in the full dataset}
+#\'   \\item{in_short_version}{Logical, whether field is in the short dataset}
+#\' }
+#\'
+#\' @source Generated from AviList field analysis
+#\'
+#\' @examples
+#\' # View all field descriptions
+#\' data(avilist_metadata)
+#\'
+#\' # Fields in short version only
+#\' avilist_metadata[avilist_metadata$in_short_version, ]
+#\'
+#\' # Fields from specific sources
+#\' avilist_metadata[avilist_metadata$source == "Clements", ]
+#\'
+"avilist_metadata"
+'
+
+writeLines(metadata_doc, "R/avilist_metadata.R")
 
 # =============================================================================
 # 9. FINAL SUMMARY
@@ -518,10 +521,15 @@ message("- data/avilist_metadata.rda")
 message("- data/sysdata.rda (internal)")
 message("- R/avilist_2025.R (full dataset documentation)")
 message("- R/avilist_2025_short.R (short dataset documentation)")
+message("- R/avilist_metadata.R (metadata documentation)")
 message("\nReady for package development!")
 
-# Display top families by species count
+# Display top families by species count (calculated on the fly)
 message("\nTop 10 families by species count:")
-print(family_info %>%
+print(avilist_2025 %>%
+        filter(Taxon_rank == "species") %>%
+        group_by(Family, Family_English_name) %>%
+        summarise(species_count = n(), .groups = "drop") %>%
+        arrange(desc(species_count)) %>%
         slice_head(n = 10) %>%
         select(Family, Family_English_name, species_count))

@@ -1,3 +1,3 @@
-# avilistr (development version)
+# avilistr 0.0.0.9000 (development version)
 
-* Initial CRAN submission.
+* 2025-06-13: Initial CRAN submission

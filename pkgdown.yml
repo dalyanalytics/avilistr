@@ -3,7 +3,7 @@ pkgdown: 2.1.3
 pkgdown_sha: ~
 articles:
   getting-started: getting-started.html
-last_built: 2025-06-13T15:17Z
+last_built: 2025-06-13T16:54Z
 urls:
   reference: https://dalyanalytics.github.io/avilistr/reference
   article: https://dalyanalytics.github.io/avilistr/articles

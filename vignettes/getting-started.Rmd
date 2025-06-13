@@ -1,0 +1,338 @@
+---
+title: "Getting Started with avilistr"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with avilistr}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+The `avilistr` package provides access to the AviList Global Avian Checklist, the first unified global bird taxonomy. This vignette demonstrates how to work with the data for common ornithological and biodiversity analyses.
+
+```{r setup}
+library(avilistr)
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+```
+
+## Loading the Data
+
+The package provides three main datasets:
+
+```{r load-data}
+# Load the datasets
+data(avilist_2025)         # Complete dataset (26 fields)
+data(avilist_2025_short)   # Essential fields (~12 fields)  
+data(avilist_metadata)     # Field descriptions
+
+# Check data dimensions
+cat("Full dataset:", nrow(avilist_2025), "records,", ncol(avilist_2025), "fields\n")
+cat("Short dataset:", nrow(avilist_2025_short), "records,", ncol(avilist_2025_short), "fields\n")
+```
+
+## Basic Data Exploration
+
+### Dataset Overview
+
+```{r explore-basic}
+# Count records by taxonomic rank
+avilist_2025_short %>%
+  count(Taxon_rank, sort = TRUE)
+```
+
+### Taxonomic Diversity
+
+```{r explore-taxonomy}
+# Count species by order (top 10)
+species_by_order <- avilist_2025_short %>%
+  filter(Taxon_rank == "species") %>%
+  count(Order, sort = TRUE) %>%
+  head(10)
+
+print(species_by_order)
+```
+
+```{r plot-orders, fig.width=8, fig.height=5}
+# Visualize most diverse orders
+ggplot(species_by_order, aes(x = reorder(Order, n), y = n)) +
+  geom_col(fill = "steelblue", alpha = 0.8) +
+  coord_flip() +
+  labs(
+    title = "Most Species-Rich Bird Orders",
+    subtitle = "Top 10 orders by number of species",
+    x = "Order",
+    y = "Number of Species",
+    caption = "Data: AviList Global Avian Checklist v2025"
+  ) +
+  theme_minimal()
+```
+
+### Family-Level Diversity
+
+```{r explore-families}
+# Most diverse bird families
+family_richness <- avilist_2025_short %>%
+  filter(Taxon_rank == "species") %>%
+  count(Family, Family_English_name, sort = TRUE) %>%
+  head(15)
+
+print(family_richness)
+```
+
+```{r plot-families, fig.width=10, fig.height=6}
+# Visualize family diversity
+ggplot(family_richness, aes(x = reorder(Family_English_name, n), y = n)) +
+  geom_col(fill = "darkgreen", alpha = 0.8) +
+  coord_flip() +
+  labs(
+    title = "Most Species-Rich Bird Families",
+    subtitle = "Top 15 families by number of species",
+    x = "Family",
+    y = "Number of Species",
+    caption = "Data: AviList Global Avian Checklist v2025"
+  ) +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 10))
+```
+
+## Species Search and Filtering
+
+### Finding Specific Groups
+
+```{r filter-examples}
+# Get all thrush species
+thrushes <- avilist_2025_short %>%
+  filter(Family == "Turdidae", Taxon_rank == "species") %>%
+  select(Scientific_name, English_name_AviList)
+
+cat("Number of thrush species:", nrow(thrushes), "\n")
+head(thrushes)
+```
+
+```{r filter-raptors}
+# Get all raptors (birds of prey)
+raptor_families <- c("Accipitridae", "Falconidae", "Strigidae", "Tytonidae")
+
+raptors <- avilist_2025_short %>%
+  filter(Family %in% raptor_families, Taxon_rank == "species") %>%
+  count(Family, Family_English_name, sort = TRUE)
+
+print(raptors)
+```
+
+### Pattern Matching
+
+```{r pattern-matching}
+# Find species with "Robin" in their name
+robins <- avilist_2025_short %>%
+  filter(str_detect(English_name_AviList, "Robin"), Taxon_rank == "species") %>%
+  select(Scientific_name, English_name_AviList, Family) %>%
+  arrange(Family)
+
+print(robins)
+```
+
+```{r genus-search}
+# Explore a specific genus (Turdus)
+turdus_species <- avilist_2025_short %>%
+  filter(str_detect(Scientific_name, "^Turdus "), Taxon_rank == "species") %>%
+  select(Scientific_name, English_name_AviList) %>%
+  arrange(Scientific_name)
+
+cat("Number of Turdus species:", nrow(turdus_species), "\n")
+head(turdus_species, 10)
+```
+
+## Data Quality and Validation
+
+### Checking Data Completeness
+
+```{r data-quality}
+# Summary of data completeness
+data_completeness <- avilist_2025 %>%
+  summarise(
+    total_records = n(),
+    missing_scientific_names = sum(is.na(Scientific_name)),
+    missing_families = sum(is.na(Family)),
+    missing_orders = sum(is.na(Order)),
+    missing_avilist_names = sum(is.na(English_name_AviList))
+  )
+
+print(data_completeness)
+```
+
+### Comparing Name Sources
+
+```{r name-comparison}
+# Compare AviList vs Clements naming
+name_comparison <- avilist_2025 %>%
+  filter(Taxon_rank == "species") %>%
+  summarise(
+    total_species = n(),
+    has_avilist_name = sum(!is.na(English_name_AviList)),
+    has_clements_name = sum(!is.na(English_name_Clements_v2024)),
+    has_both_names = sum(!is.na(English_name_AviList) & !is.na(English_name_Clements_v2024)),
+    names_differ = sum(English_name_AviList != English_name_Clements_v2024, na.rm = TRUE)
+  )
+
+print(name_comparison)
+```
+
+```{r name-differences}
+# Examples where names differ between sources
+name_differences <- avilist_2025 %>%
+  filter(
+    Taxon_rank == "species",
+    !is.na(English_name_AviList),
+    !is.na(English_name_Clements_v2024),
+    English_name_AviList != English_name_Clements_v2024
+  ) %>%
+  select(Scientific_name, English_name_AviList, English_name_Clements_v2024) %>%
+  head(10)
+
+print(name_differences)
+```
+
+## Working with Performance
+
+### Memory and Speed Considerations
+
+```{r performance-tips}
+# For large analyses, use the short dataset when possible
+system.time({
+  short_analysis <- avilist_2025_short %>%
+    filter(Taxon_rank == "species") %>%
+    count(Order)
+})
+
+# Filter early to reduce data size
+songbirds <- avilist_2025_short %>%
+  filter(Order == "Passeriformes", Taxon_rank == "species")
+
+cat("Songbird species:", nrow(songbirds), "\n")
+
+# Select only needed columns to reduce memory usage
+essential_fields <- avilist_2025 %>%
+  select(Scientific_name, English_name_AviList, Family, Order, Taxon_rank)
+
+cat("Memory usage reduced from", ncol(avilist_2025), "to", ncol(essential_fields), "columns\n")
+```
+
+## Integration with Other R Packages
+
+### Using with `taxize`
+
+```{r taxize-example, eval=FALSE}
+library(taxize)
+
+# Get a sample of species for validation
+sample_species <- avilist_2025_short %>%
+  filter(Family == "Turdidae", Taxon_rank == "species") %>%
+  pull(Scientific_name) %>%
+  head(5)
+
+# Validate names with GBIF (commented out to avoid API calls in vignette)
+# gbif_validation <- get_gbifid(sample_species)
+```
+
+### Using with `rebird` for eBird Integration
+
+```{r rebird-example, eval=FALSE}
+library(rebird)
+
+# Get Cornell Lab species codes from full dataset
+thrush_codes <- avilist_2025 %>%
+  filter(Family == "Turdidae", Taxon_rank == "species") %>%
+  select(Scientific_name, Species_code_Cornell_Lab) %>%
+  filter(!is.na(Species_code_Cornell_Lab))
+
+# Example: Get recent observations (commented out to avoid API calls)
+# recent_thrushes <- ebirdregion("US-NY", species = thrush_codes$Species_code_Cornell_Lab[1])
+```
+
+## Advanced Analyses
+
+### Taxonomic Patterns
+
+```{r taxonomic-patterns}
+# Find monotypic genera (genera with only one species)
+monotypic_genera <- avilist_2025_short %>%
+  filter(Taxon_rank == "species") %>%
+  mutate(genus = str_extract(Scientific_name, "^[A-Z][a-z]+")) %>%
+  count(genus, Family) %>%
+  filter(n == 1) %>%
+  arrange(Family)
+
+cat("Number of monotypic genera:", nrow(monotypic_genera), "\n")
+
+# Genera per family
+monotypic_summary <- monotypic_genera %>%
+  count(Family, name = "monotypic_genera") %>%
+  arrange(desc(monotypic_genera)) %>%
+  head(10)
+
+print(monotypic_summary)
+```
+
+### Geographic Patterns (using Type Locality)
+
+```{r geographic-analysis}
+# Analyze type localities (where species were first described)
+type_localities <- avilist_2025 %>%
+  filter(Taxon_rank == "species", !is.na(Type_locality)) %>%
+  mutate(
+    continent = case_when(
+      str_detect(Type_locality, regex("Australia|New Zealand", ignore_case = TRUE)) ~ "Australasia",
+      str_detect(Type_locality, regex("Europe|European", ignore_case = TRUE)) ~ "Europe",
+      str_detect(Type_locality, regex("Africa|African", ignore_case = TRUE)) ~ "Africa",
+      str_detect(Type_locality, regex("Asia|Asian|China|Japan|India", ignore_case = TRUE)) ~ "Asia",
+      str_detect(Type_locality, regex("America|Brazil|Peru|Mexico|Canada|USA", ignore_case = TRUE)) ~ "Americas",
+      TRUE ~ "Other"
+    )
+  ) %>%
+  count(continent, sort = TRUE)
+
+print(type_localities)
+```
+
+## Exploring Field Metadata
+
+```{r metadata-exploration}
+# Understand the available fields
+print(avilist_metadata)
+
+# Fields available in short vs full dataset
+cat("Fields in short dataset:\n")
+short_fields <- avilist_metadata %>%
+  filter(in_short_version) %>%
+  pull(field_name)
+cat(paste(short_fields, collapse = ", "), "\n\n")
+
+cat("Additional fields in full dataset:\n")
+full_only_fields <- avilist_metadata %>%
+  filter(in_full_version & !in_short_version) %>%
+  pull(field_name)
+cat(paste(full_only_fields, collapse = ", "), "\n")
+```
+
+## Summary
+
+The `avilistr` package provides comprehensive access to the unified AviList Global Avian Checklist. Key takeaways:
+
+1. **Use the short dataset** for most analyses to improve performance
+2. **Filter early** in your analysis pipeline to reduce memory usage
+3. **Leverage the metadata** to understand field contents and sources
+4. **Integrate with other packages** like `taxize` and `rebird` for enhanced functionality
+5. **Take advantage of the unified taxonomy** to avoid conflicts between different checklist authorities
+
+For more advanced functionality, future versions of the package may include dedicated search and validation functions.

@@ -70,6 +70,9 @@ nrow(avilist_2025)  # Total records
 sum(avilist_2025$Taxon_rank == "species")  # Number of species
 ```
 
+**📖 For detailed examples and tutorials, see the [Getting Started
+vignette](vignettes/getting-started.html).**
+
 ## 🦜 Data Overview
 
 The package provides three main datasets:

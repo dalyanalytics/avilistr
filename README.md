@@ -1,9 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# avilistr
-
-<a href="https://dalyanalytics.github.io/avilistr/"><img src="man/figures/logo.png" align="right" height="200" alt="avilistr website" /></a>
+# avilistr <img src="man/figures/logo.png" align="right" height="200" />
 
 <!-- badges: start -->
 

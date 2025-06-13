@@ -15,6 +15,8 @@ knitr::opts_chunk$set(
 
 # avilistr 
 
+<a href="https://dalyanalytics.github.io/avilistr/"><img src="man/figures/logo.png" align="right" height="200" alt="avilistr website" /></a>
+
 <!-- badges: start -->
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![CRAN status](https://www.r-pkg.org/badges/version/avilistr)](https://CRAN.R-project.org/package=avilistr)
@@ -70,7 +72,7 @@ nrow(avilist_2025)  # Total records
 sum(avilist_2025$Taxon_rank == "species")  # Number of species
 ```
 
-**📖 For detailed examples and tutorials, see the [Getting Started vignette](vignettes/getting-started.html).**
+**📖 For detailed examples and tutorials, see the [Getting Started vignette](https://dalyanalytics.github.io/avilistr/articles/getting-started.html).**
 
 
 ## 🦜 Data Overview

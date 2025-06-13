@@ -3,6 +3,8 @@
 
 # avilistr
 
+<a href="https://dalyanalytics.github.io/avilistr/"><img src="man/figures/logo.png" align="right" height="200" alt="avilistr website" /></a>
+
 <!-- badges: start -->
 
 [![Lifecycle:
@@ -71,7 +73,7 @@ sum(avilist_2025$Taxon_rank == "species")  # Number of species
 ```
 
 **📖 For detailed examples and tutorials, see the [Getting Started
-vignette](vignettes/getting-started.html).**
+vignette](https://dalyanalytics.github.io/avilistr/articles/getting-started.html).**
 
 ## 🦜 Data Overview
 

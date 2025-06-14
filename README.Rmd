@@ -58,7 +58,6 @@ pak::pak("dalyanalytics/avilistr")
 
 ```{r quickstart, eval=FALSE}
 library(avilistr)
-library(dplyr)
 
 # Load the complete AviList dataset
 data(avilist_2025)

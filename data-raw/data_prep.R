@@ -14,6 +14,18 @@ library(tibble)
 library(tidyr)
 library(usethis)
 
+# Clean AviList column headers: snake_case, without source versions such as
+# "v2026" (e.g. "ENGLISH NAME: CLEMENTS v2026" -> "english_name_clements")
+clean_field_names <- function(x) {
+  x <- str_remove_all(x, "\\bv\\d+\\b")
+  x <- str_to_lower(str_replace_all(str_trim(x), "[^A-Za-z0-9]+", "_"))
+  case_when(
+    x == "_" ~ "sequence",  # "#" column
+    x == "rank" ~ "taxon_rank",
+    TRUE ~ x
+  )
+}
+
 # =============================================================================
 # 1. LOAD AND CLEAN RAW DATA
 # =============================================================================
@@ -51,10 +63,7 @@ message("Cleaning and processing full dataset...")
 
 avilist_2026 <- raw_avilist_full %>%
   # Clean column names (snake_case, drop source versions such as "v2026")
-  rename(sequence = `#`, taxon_rank = RANK) %>%
-  rename_with(~ str_remove_all(.x, "\\bv\\d+\\b")) %>%
-  rename_with(~ str_replace_all(str_trim(.x), "[^A-Za-z0-9]+", "_")) %>%
-  rename_with(str_to_lower) %>%
+  rename_with(clean_field_names) %>%
 
   # Convert appropriate columns to numeric
   mutate(
@@ -110,10 +119,7 @@ message("Processing official short version...")
 
 avilist_2026_short <- raw_avilist_short %>%
   # Apply same cleaning as full version
-  rename(sequence = `#`, taxon_rank = RANK) %>%
-  rename_with(~ str_remove_all(.x, "\\bv\\d+\\b")) %>%
-  rename_with(~ str_replace_all(str_trim(.x), "[^A-Za-z0-9]+", "_")) %>%
-  rename_with(str_to_lower) %>%
+  rename_with(clean_field_names) %>%
 
   # Convert appropriate columns to numeric
   mutate(
@@ -156,8 +162,27 @@ if (length(short_only_fields) > 0) {
 
 message("Creating metadata objects...")
 
-# Create comprehensive field descriptions from actual data
-message("Generating field descriptions from actual data...")
+# Field descriptions from the "How to use" sheet of the extended version
+message("Reading field descriptions from the 'How to use' sheet...")
+
+field_descriptions <- read_excel(
+  "data-raw/AviList-v2026-20Oct2026-extended-version.xlsx",
+  sheet = "How to use",
+  col_types = "text"
+) %>%
+  transmute(
+    field_name = clean_field_names(`Column header`),
+    description = str_squish(Description)
+  )
+
+# Source versions are given in the column headers (e.g. "CLEMENTS v2026",
+# "BIRDLIFE v10")
+source_versions <- tibble(
+  field_name = clean_field_names(names(raw_avilist_full)),
+  header_version = str_extract(names(raw_avilist_full), "\\bv\\d+\\b")
+)
+clements_version <- source_versions$header_version[source_versions$field_name == "english_name_clements"]
+birdlife_version <- source_versions$header_version[source_versions$field_name == "english_name_birdlife"]
 
 # Get all fields from both datasets
 full_fields <- names(avilist_2026)
@@ -176,42 +201,11 @@ print(all_fields)
 avilist_metadata <- tibble(
   field_name = all_fields
 ) %>%
+  left_join(field_descriptions, by = "field_name") %>%
+  left_join(source_versions, by = "field_name") %>%
   mutate(
     in_full_version = field_name %in% full_fields,
     in_short_version = field_name %in% short_fields,
-
-    # Generate descriptions based on field names (comprehensive patterns)
-    description = case_when(
-      field_name == "sequence" ~ "Sequential numbering for taxonomic order",
-      field_name == "taxon_rank" ~ "Taxonomic rank (species, subspecies, etc.)",
-      field_name == "order" ~ "Taxonomic order",
-      field_name == "family" ~ "Taxonomic family",
-      str_detect(tolower(field_name), "family.*english") ~ "English name of the family",
-      field_name == "scientific_name" ~ "Scientific binomial name",
-      field_name == "authority" ~ "Author and year of original description",
-      str_detect(tolower(field_name), "english.*name.*avilist") ~ "English common name (AviList)",
-      str_detect(tolower(field_name), "english.*name.*clements") ~ "English common name (Clements)",
-      str_detect(tolower(field_name), "bibliographic") ~ "Bibliographic details of original description",
-      str_detect(tolower(field_name), "species.*code.*cornell") ~ "Cornell Lab species code",
-      field_name == "avibase_id" ~ "Avibase database identifier",
-      str_detect(tolower(field_name), "birdlife.*url") ~ "BirdLife DataZone species page URL",
-      str_detect(tolower(field_name), "birds.*world.*url") ~ "Birds of the World species account URL",
-      str_detect(tolower(field_name), "original.*description.*url") ~ "URL to original species description",
-      str_detect(tolower(field_name), "gender.*genus") ~ "Grammatical gender of the genus name",
-      str_detect(tolower(field_name), "type.*species") ~ "Type species of the genus",
-      str_detect(tolower(field_name), "type.*locality") ~ "Type locality where species was first collected",
-      str_detect(tolower(field_name), "title.*original") ~ "Title of the original species description",
-      field_name == "protonym" ~ "Original name as first published",
-
-      # Additional common patterns
-      str_detect(tolower(field_name), "url$") ~ paste("URL link for", str_replace(field_name, "_URL$", "")),
-      str_detect(tolower(field_name), "code") ~ paste("Species code from", str_extract(field_name, "\\w+(?=_|$)")),
-      str_detect(tolower(field_name), "id$") ~ paste("Database identifier for", str_replace(field_name, "ID$", "")),
-      str_detect(tolower(field_name), "name") ~ paste("Name field:", field_name),
-
-      # Fallback - just use the field name
-      TRUE ~ paste("Data field:", str_replace_all(field_name, "_", " "))
-    ),
 
     # Determine data type
     data_type = case_when(
@@ -224,12 +218,22 @@ avilist_metadata <- tibble(
     source = case_when(
       str_detect(tolower(field_name), "clements") ~ "Clements",
       str_detect(tolower(field_name), "cornell") ~ "Cornell Lab",
-      str_detect(tolower(field_name), "birdlife") ~ "BirdLife",
+      str_detect(tolower(field_name), "birdlife|iucn") ~ "BirdLife",
       str_detect(tolower(field_name), "avibase") ~ "Avibase",
       str_detect(tolower(field_name), "birds.*world") ~ "Cornell Lab",
       TRUE ~ "AviList"
-    )
+    ),
+
+    # Version of the source the field is aligned with: from the column header
+    # when given, otherwise the version of the matching English name column
+    source_version = coalesce(header_version, case_when(
+      source %in% c("Clements", "Cornell Lab") ~ clements_version,
+      source == "BirdLife" ~ birdlife_version,
+      source == "AviList" ~ "v2026"
+    ))
   ) %>%
+  select(field_name, description, data_type, source, source_version,
+         in_full_version, in_short_version) %>%
   arrange(field_name)
 
 # Print summary of field coverage
@@ -237,14 +241,14 @@ message("\nField description summary:")
 message(paste("Fields in full version:", sum(avilist_metadata$in_full_version)))
 message(paste("Fields in short version:", sum(avilist_metadata$in_short_version)))
 
-# Show any fields that might have generic descriptions
-generic_fields <- avilist_metadata %>%
-  filter(str_detect(description, "^Data field:")) %>%
+# Show any fields missing from the "How to use" sheet
+missing_descriptions <- avilist_metadata %>%
+  filter(is.na(description)) %>%
   pull(field_name)
 
-if (length(generic_fields) > 0) {
-  message("\nFields with generic descriptions (may need manual review):")
-  print(generic_fields)
+if (length(missing_descriptions) > 0) {
+  message("\nFields without a description (may need manual review):")
+  print(missing_descriptions)
 }
 
 # Summary statistics
@@ -452,20 +456,22 @@ metadata_doc <- '
 #\' AviList Field Metadata
 #\'
 #\' Metadata describing all fields in the AviList datasets, including
-#\' field descriptions, data types, sources, and availability in different
-#\' dataset versions.
+#\' field descriptions, data types, sources, source versions, and availability
+#\' in different dataset versions.
 #\'
 #\' @format A tibble with metadata for all AviList fields:
 #\' \\describe{
 #\'   \\item{field_name}{Name of the field in the dataset}
-#\'   \\item{description}{Human-readable description of the field content}
+#\'   \\item{description}{Description of the field content, from the "How to use" sheet of the AviList file}
 #\'   \\item{data_type}{Data type (character, numeric, etc.)}
 #\'   \\item{source}{Original source of the data (AviList, Clements, etc.)}
+#\'   \\item{source_version}{Version of the source the field is aligned with (e.g. v2026 for Clements, v10 for BirdLife)}
 #\'   \\item{in_full_version}{Logical, whether field is in the full dataset}
 #\'   \\item{in_short_version}{Logical, whether field is in the short dataset}
 #\' }
 #\'
-#\' @source Generated from AviList field analysis
+#\' @source Generated from the "How to use" sheet and column headers of the
+#\'   AviList extended file
 #\'
 #\' @examples
 #\' # View all field descriptions

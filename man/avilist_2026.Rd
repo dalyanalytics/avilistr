@@ -21,11 +21,18 @@ taxonomic information as of October 2026. This is the extended version with
 all available fields including nomenclatural details, bibliographic
 information, and external database links.
 }
+\details{
+Use \code{\link[=avilist]{avilist()}} with \code{short = TRUE} to get only the fields of the official
+AviList short version.
+}
 \examples{
 # Load the full dataset
 data(avilist_2026)
 
 # View summary
 str(avilist_2026)
+}
+\seealso{
+\code{\link[=avilist]{avilist()}}, \link{avilist_metadata}
 }
 \keyword{datasets}

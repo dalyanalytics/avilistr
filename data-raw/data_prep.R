@@ -23,9 +23,8 @@ avilist_release_date <- as.Date("2026-10-20")
 file_full <- "data-raw/AviList-v2026-20Oct2026-extended-version.xlsx"
 file_short <- "data-raw/AviList-v2026-20Oct2026-short-version.xlsx"
 
-# Names of the exported datasets, e.g. avilist_2026 and avilist_2026_short
+# Name of the exported dataset, e.g. avilist_2026
 name_full <- paste0("avilist_", avilist_version)
-name_short <- paste0("avilist_", avilist_version, "_short")
 
 # Clean AviList column headers: snake_case, without source versions such as
 # "v2026" (e.g. "ENGLISH NAME: CLEMENTS v2026" -> "english_name_clements")
@@ -53,20 +52,18 @@ raw_avilist_full <- read_excel(
   col_types = "text"  # Read everything as text initially
 )
 
-# Official short version
-raw_avilist_short <- read_excel(
-  file_short,
-  col_types = "text"
-)
+# Official short version: only its column names are used, to flag the fields
+# of the short version in avilist_metadata (see avilist(short = TRUE))
+raw_short_fields <- names(read_excel(file_short, n_max = 0))
 
 message(paste("Loaded full version:", nrow(raw_avilist_full), "records with", ncol(raw_avilist_full), "columns"))
-message(paste("Loaded short version:", nrow(raw_avilist_short), "records with", ncol(raw_avilist_short), "columns"))
+message(paste("Loaded short version column names:", length(raw_short_fields), "columns"))
 
 # Display column names for verification
 message("Full version column names:")
 print(names(raw_avilist_full))
 message("\nShort version column names:")
-print(names(raw_avilist_short))
+print(raw_short_fields)
 
 # =============================================================================
 # 2. DATA CLEANING AND TYPE CONVERSION
@@ -125,48 +122,19 @@ avilist <- raw_avilist_full %>%
   arrange(sequence)
 
 # =============================================================================
-# 3. PROCESS OFFICIAL SHORT VERSION
+# 3. OFFICIAL SHORT VERSION FIELDS
 # =============================================================================
 
-message("Processing official short version...")
+# The short version is a subset of the fields of the full version, returned by
+# avilist(short = TRUE) rather than shipped as a separate dataset
+short_fields <- clean_field_names(raw_short_fields)
+short_only_fields <- setdiff(short_fields, names(avilist))
 
-avilist_short <- raw_avilist_short %>%
-  # Apply same cleaning as full version
-  rename_with(clean_field_names) %>%
-
-  # Convert appropriate columns to numeric
-  mutate(
-    sequence = as.numeric(sequence),
-
-    # Clean and standardize text fields (adjust field names as needed)
-    scientific_name = str_trim(scientific_name),
-    across(contains("english_name"), ~ str_trim(.x)),
-
-    # Standardize taxonomic ranks
-    taxon_rank = str_to_lower(str_trim(taxon_rank)),
-
-    # Clean family and order names
-    across(c(order, family), ~ str_trim(.x)),
-
-    # Clean authority information
-    authority = str_trim(authority)
-  ) %>%
-
-  # Arrange by taxonomic sequence
-  arrange(sequence)
-
-# Compare field overlap between versions
-common_fields <- intersect(names(avilist), names(avilist_short))
-full_only_fields <- setdiff(names(avilist), names(avilist_short))
-short_only_fields <- setdiff(names(avilist_short), names(avilist))
-
-message(paste("Common fields:", length(common_fields)))
-message(paste("Full-only fields:", length(full_only_fields)))
-message(paste("Short-only fields:", length(short_only_fields)))
+message(paste("Short version fields:", length(short_fields)))
 
 if (length(short_only_fields) > 0) {
-  message("Fields unique to short version:")
-  print(short_only_fields)
+  warning("Fields of the short version missing from the full version: ",
+          paste(short_only_fields, collapse = ", "))
 }
 
 # =============================================================================
@@ -199,7 +167,6 @@ birdlife_version <- source_versions$header_version[source_versions$field_name ==
 
 # Get all fields from both datasets
 full_fields <- names(avilist)
-short_fields <- names(avilist_short)
 all_fields <- unique(c(full_fields, short_fields))
 
 message(paste("Full dataset has", length(full_fields), "fields"))
@@ -334,22 +301,19 @@ if (length(existing_rda) > 0) {
   message("Removed existing .rda files")
 }
 
-# ONLY save the three main datasets that users should access, under their
-# versioned names (e.g. avilist_2026)
+# ONLY save the two datasets that users should access, the checklist under its
+# versioned name (e.g. avilist_2026)
 assign(name_full, avilist)
-assign(name_short, avilist_short)
 do.call(usethis::use_data, list(as.name(name_full), overwrite = TRUE))
-do.call(usethis::use_data, list(as.name(name_short), overwrite = TRUE))
 usethis::use_data(avilist_metadata, overwrite = TRUE)
 
-message("✓ Saved three main datasets")
+message("✓ Saved two datasets")
 
 # Verify final state
 final_files <- list.files("data/", pattern = "\\.rda$")
 message("Final data files:", paste(final_files, collapse = ", "))
 
-# Should only be: avilist_<version>.rda, avilist_<version>_short.rda,
-# avilist_metadata.rda
+# Should only be: avilist_<version>.rda, avilist_metadata.rda
 
 # =============================================================================
 # 7. CREATE DOCUMENTATION STUBS
@@ -366,11 +330,16 @@ data_doc_template_full <- '
 #\' all available fields including nomenclatural details, bibliographic
 #\' information, and external database links.
 #\'
+#\' Use [avilist()] with `short = TRUE` to get only the fields of the official
+#\' AviList short version.
+#\'
 #\' @format A data frame with {nrow} rows and {ncol} columns.
 #\'   See avilist_metadata for detailed field descriptions.
 #\'
 #\' @source AviList Core Team. {version}. AviList: The Global Avian Checklist, v{version}.
 #\'   \\doi{10.2173/avilist.v{version}}
+#\'
+#\' @seealso [avilist()], [avilist_metadata]
 #\'
 #\' @examples
 #\' # Load the full dataset
@@ -379,31 +348,6 @@ data_doc_template_full <- '
 #\' # View summary
 #\' str({name})
 
-"{name}"
-'
-
-# Create data documentation template for SHORT dataset
-data_doc_template_short <- '
-#\' AviList Global Avian Checklist v{version} (Short Version)
-#\'
-#\' The essential fields from the AviList dataset containing core taxonomic
-#\' information for all bird species and subspecies as of {release}. This is
-#\' the official short version provided by the AviList team, optimized for
-#\' faster loading and basic taxonomic operations.
-#\'
-#\' @format A data frame with {nrow} rows and {ncol} columns.
-#\'   See avilist_metadata for detailed field descriptions.
-#\'
-#\' @source AviList Core Team. {version}. AviList: The Global Avian Checklist, v{version}.
-#\'   \\doi{10.2173/avilist.v{version}}
-#\'
-#\' @examples
-#\' # Load the short dataset (faster loading)
-#\' data({name})
-#\'
-#\' # View summary
-#\' str({name})
-#\'
 "{name}"
 '
 
@@ -420,15 +364,13 @@ fill_doc_template <- function(template, data, name) {
 }
 
 complete_doc_full <- fill_doc_template(data_doc_template_full, avilist, name_full)
-complete_doc_short <- fill_doc_template(data_doc_template_short, avilist_short, name_short)
 
 # Remove documentation files of previous versions (e.g. R/avilist_2025.R)
 old_docs <- list.files("R", pattern = "^avilist_[0-9]{4}(_short)?\\.R$", full.names = TRUE)
 file.remove(old_docs)
 
-# Write documentation files
+# Write documentation file
 writeLines(complete_doc_full, file.path("R", paste0(name_full, ".R")))
-writeLines(complete_doc_short, file.path("R", paste0(name_short, ".R")))
 
 # Create avilist_metadata documentation
 metadata_doc <- '
@@ -446,7 +388,7 @@ metadata_doc <- '
 #\'   \\item{source}{Original source of the data (AviList, Clements, etc.)}
 #\'   \\item{source_version}{Version of the source the field is aligned with (e.g. v2026 for Clements, v10 for BirdLife)}
 #\'   \\item{in_full_version}{Logical, whether field is in the full dataset}
-#\'   \\item{in_short_version}{Logical, whether field is in the short dataset}
+#\'   \\item{in_short_version}{Logical, whether field is in the official short version, returned by `avilist(short = TRUE)`}
 #\' }
 #\'
 #\' @source Generated from the "How to use" sheet and column headers of the
@@ -480,13 +422,11 @@ message(paste("Subspecies count:", avilist_stats$subspecies_count))
 message(paste("Families count:", avilist_stats$families_count))
 message(paste("Orders count:", avilist_stats$orders_count))
 message(paste("Fields in full dataset:", ncol(avilist)))
-message(paste("Fields in short dataset:", ncol(avilist_short)))
+message(paste("Fields in short version:", length(short_fields)))
 message("\nFiles created:")
 message("- data/", name_full, ".rda")
-message("- data/", name_short, ".rda")
 message("- data/avilist_metadata.rda")
-message("- R/", name_full, ".R (full dataset documentation)")
-message("- R/", name_short, ".R (short dataset documentation)")
+message("- R/", name_full, ".R (dataset documentation)")
 message("- R/avilist_metadata.R (metadata documentation)")
 message("\nReady for package development!")
 

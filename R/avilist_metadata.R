@@ -13,7 +13,7 @@
 #'   \item{source}{Original source of the data (AviList, Clements, etc.)}
 #'   \item{source_version}{Version of the source the field is aligned with (e.g. v2026 for Clements, v10 for BirdLife)}
 #'   \item{in_full_version}{Logical, whether field is in the full dataset}
-#'   \item{in_short_version}{Logical, whether field is in the short dataset}
+#'   \item{in_short_version}{Logical, whether field is in the official short version, returned by `avilist(short = TRUE)`}
 #' }
 #'
 #' @source Generated from the "How to use" sheet and column headers of the

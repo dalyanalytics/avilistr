@@ -316,55 +316,7 @@ if (nrow(invalid_ranks) > 0) {
 }
 
 # =============================================================================
-# 6. CREATE INTERNAL REFERENCE DATA
-# =============================================================================
-
-message("Creating internal reference objects...")
-
-# Common name variations for fuzzy matching
-name_variations <- avilist %>%
-  filter(taxon_rank == "species") %>%
-  select(scientific_name, english_name_avilist, english_name_clements) %>%
-  pivot_longer(
-    cols = c(english_name_avilist, english_name_clements),
-    names_to = "source",
-    values_to = "common_name",
-    values_drop_na = TRUE
-  ) %>%
-  distinct() %>%
-  arrange(scientific_name)
-
-# Authority codes and abbreviations
-authority_patterns <- avilist %>%
-  filter(!is.na(authority), taxon_rank == "species") %>%
-  count(authority, sort = TRUE) %>%
-  slice_head(n = 100)  # Top 100 most common authorities
-
-# Order information with statistics
-order_info <- avilist %>%
-  filter(taxon_rank == "species") %>%
-  group_by(order) %>%
-  summarise(
-    species_count = n(),
-    families_count = n_distinct(family),
-    example_families = paste(head(unique(family), 3), collapse = ", "),
-    .groups = "drop"
-  ) %>%
-  arrange(desc(species_count))
-
-# Family information with statistics
-family_info <- avilist %>%
-  filter(taxon_rank == "species") %>%
-  group_by(order, family) %>%
-  summarise(
-    species_count = n(),
-    example_species = paste(head(scientific_name, 3), collapse = ", "),
-    .groups = "drop"
-  ) %>%
-  arrange(order, desc(species_count))
-
-# =============================================================================
-# 7. SAVE DATA OBJECTS
+# 6. SAVE DATA OBJECTS
 # =============================================================================
 
 message("Saving data objects...")
@@ -400,7 +352,7 @@ message("Final data files:", paste(final_files, collapse = ", "))
 # avilist_metadata.rda
 
 # =============================================================================
-# 8. CREATE DOCUMENTATION STUBS
+# 7. CREATE DOCUMENTATION STUBS
 # =============================================================================
 
 message("Creating documentation templates...")
@@ -516,7 +468,7 @@ metadata_doc <- '
 writeLines(metadata_doc, "R/avilist_metadata.R")
 
 # =============================================================================
-# 9. FINAL SUMMARY
+# 8. FINAL SUMMARY
 # =============================================================================
 
 message("\n", strrep("=", 60))

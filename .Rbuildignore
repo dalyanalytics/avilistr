@@ -9,3 +9,4 @@
 ^pkgdown$
 ^\.github$
 ^CRAN-SUBMISSION$
+^man/figures/avilistr-hexsticker\.png$

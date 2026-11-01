@@ -14,6 +14,19 @@ library(tibble)
 library(tidyr)
 library(usethis)
 
+# =============================================================================
+# 0. AVILIST VERSION - update these for a new AviList release
+# =============================================================================
+
+avilist_version <- "2026"
+avilist_release_date <- as.Date("2026-10-20")
+file_full <- "data-raw/AviList-v2026-20Oct2026-extended-version.xlsx"
+file_short <- "data-raw/AviList-v2026-20Oct2026-short-version.xlsx"
+
+# Names of the exported datasets, e.g. avilist_2026 and avilist_2026_short
+name_full <- paste0("avilist_", avilist_version)
+name_short <- paste0("avilist_", avilist_version, "_short")
+
 # Clean AviList column headers: snake_case, without source versions such as
 # "v2026" (e.g. "ENGLISH NAME: CLEMENTS v2026" -> "english_name_clements")
 clean_field_names <- function(x) {
@@ -35,14 +48,14 @@ message("Reading AviList Excel files...")
 
 # Full/extended version
 raw_avilist_full <- read_excel(
-  "data-raw/AviList-v2026-20Oct2026-extended-version.xlsx",
-  sheet = "AviList v2026", # the default sheet is the first one
+  file_full,
+  sheet = 1, # the checklist is the first sheet; its name changes each release
   col_types = "text"  # Read everything as text initially
 )
 
 # Official short version
 raw_avilist_short <- read_excel(
-  "data-raw/AviList-v2026-20Oct2026-short-version.xlsx",
+  file_short,
   col_types = "text"
 )
 
@@ -61,7 +74,7 @@ print(names(raw_avilist_short))
 
 message("Cleaning and processing full dataset...")
 
-avilist_2026 <- raw_avilist_full %>%
+avilist <- raw_avilist_full %>%
   # Clean column names (snake_case, drop source versions such as "v2026")
   rename_with(clean_field_names) %>%
 
@@ -117,7 +130,7 @@ avilist_2026 <- raw_avilist_full %>%
 
 message("Processing official short version...")
 
-avilist_2026_short <- raw_avilist_short %>%
+avilist_short <- raw_avilist_short %>%
   # Apply same cleaning as full version
   rename_with(clean_field_names) %>%
 
@@ -143,9 +156,9 @@ avilist_2026_short <- raw_avilist_short %>%
   arrange(sequence)
 
 # Compare field overlap between versions
-common_fields <- intersect(names(avilist_2026), names(avilist_2026_short))
-full_only_fields <- setdiff(names(avilist_2026), names(avilist_2026_short))
-short_only_fields <- setdiff(names(avilist_2026_short), names(avilist_2026))
+common_fields <- intersect(names(avilist), names(avilist_short))
+full_only_fields <- setdiff(names(avilist), names(avilist_short))
+short_only_fields <- setdiff(names(avilist_short), names(avilist))
 
 message(paste("Common fields:", length(common_fields)))
 message(paste("Full-only fields:", length(full_only_fields)))
@@ -166,7 +179,7 @@ message("Creating metadata objects...")
 message("Reading field descriptions from the 'How to use' sheet...")
 
 field_descriptions <- read_excel(
-  "data-raw/AviList-v2026-20Oct2026-extended-version.xlsx",
+  file_full,
   sheet = "How to use",
   col_types = "text"
 ) %>%
@@ -185,8 +198,8 @@ clements_version <- source_versions$header_version[source_versions$field_name ==
 birdlife_version <- source_versions$header_version[source_versions$field_name == "english_name_birdlife"]
 
 # Get all fields from both datasets
-full_fields <- names(avilist_2026)
-short_fields <- names(avilist_2026_short)
+full_fields <- names(avilist)
+short_fields <- names(avilist_short)
 all_fields <- unique(c(full_fields, short_fields))
 
 message(paste("Full dataset has", length(full_fields), "fields"))
@@ -229,7 +242,7 @@ avilist_metadata <- tibble(
     source_version = coalesce(header_version, case_when(
       source %in% c("Clements", "Cornell Lab") ~ clements_version,
       source == "BirdLife" ~ birdlife_version,
-      source == "AviList" ~ "v2026"
+      source == "AviList" ~ paste0("v", avilist_version)
     ))
   ) %>%
   select(field_name, description, data_type, source, source_version,
@@ -252,17 +265,17 @@ if (length(missing_descriptions) > 0) {
 }
 
 # Summary statistics
-avilist_stats_2026 <- list(
-  version = "2026",
-  release_date = "2026-10-20",
-  total_records = nrow(avilist_2026),
-  species_count = sum(avilist_2026$taxon_rank == "species", na.rm = TRUE),
-  subspecies_count = sum(avilist_2026$taxon_rank == "subspecies", na.rm = TRUE),
-  genera_count = length(unique(str_extract(avilist_2026$scientific_name[avilist_2026$taxon_rank == "species"], "^[A-Z][a-z]+"))),
-  families_count = length(unique(avilist_2026$family)),
-  orders_count = length(unique(avilist_2026$order)),
-  fields_count = ncol(avilist_2026),
-  citation = "AviList Core Team. 2026. AviList: The Global Avian Checklist, v2026. https://doi.org/10.2173/avilist.v2026"
+avilist_stats <- list(
+  version = avilist_version,
+  release_date = as.character(avilist_release_date),
+  total_records = nrow(avilist),
+  species_count = sum(avilist$taxon_rank == "species", na.rm = TRUE),
+  subspecies_count = sum(avilist$taxon_rank == "subspecies", na.rm = TRUE),
+  genera_count = length(unique(str_extract(avilist$scientific_name[avilist$taxon_rank == "species"], "^[A-Z][a-z]+"))),
+  families_count = length(unique(avilist$family)),
+  orders_count = length(unique(avilist$order)),
+  fields_count = ncol(avilist),
+  citation = names(read_excel(file_full, sheet = "Recommended citation", n_max = 0))
 )
 
 # =============================================================================
@@ -272,7 +285,7 @@ avilist_stats_2026 <- list(
 message("Performing data quality checks...")
 
 # Check for duplicates
-duplicates <- avilist_2026 %>%
+duplicates <- avilist %>%
   filter(taxon_rank == "species") %>%
   group_by(scientific_name) %>%
   filter(n() > 1) %>%
@@ -284,16 +297,16 @@ if (nrow(duplicates) > 0) {
 }
 
 # Check for missing essential data
-missing_sci_names <- sum(is.na(avilist_2026$scientific_name))
-missing_families <- sum(is.na(avilist_2026$family))
-missing_orders <- sum(is.na(avilist_2026$order))
+missing_sci_names <- sum(is.na(avilist$scientific_name))
+missing_families <- sum(is.na(avilist$family))
+missing_orders <- sum(is.na(avilist$order))
 
 message(paste("Missing scientific names:", missing_sci_names))
 message(paste("Missing families:", missing_families))
 message(paste("Missing orders:", missing_orders))
 
 # Validate taxonomic hierarchy
-invalid_ranks <- avilist_2026 %>%
+invalid_ranks <- avilist %>%
   filter(!taxon_rank %in% c("species", "subspecies", "genus", "family", "order")) %>%
   distinct(taxon_rank)
 
@@ -309,7 +322,7 @@ if (nrow(invalid_ranks) > 0) {
 message("Creating internal reference objects...")
 
 # Common name variations for fuzzy matching
-name_variations <- avilist_2026 %>%
+name_variations <- avilist %>%
   filter(taxon_rank == "species") %>%
   select(scientific_name, english_name_avilist, english_name_clements) %>%
   pivot_longer(
@@ -322,13 +335,13 @@ name_variations <- avilist_2026 %>%
   arrange(scientific_name)
 
 # Authority codes and abbreviations
-authority_patterns <- avilist_2026 %>%
+authority_patterns <- avilist %>%
   filter(!is.na(authority), taxon_rank == "species") %>%
   count(authority, sort = TRUE) %>%
   slice_head(n = 100)  # Top 100 most common authorities
 
 # Order information with statistics
-order_info <- avilist_2026 %>%
+order_info <- avilist %>%
   filter(taxon_rank == "species") %>%
   group_by(order) %>%
   summarise(
@@ -340,7 +353,7 @@ order_info <- avilist_2026 %>%
   arrange(desc(species_count))
 
 # Family information with statistics
-family_info <- avilist_2026 %>%
+family_info <- avilist %>%
   filter(taxon_rank == "species") %>%
   group_by(order, family) %>%
   summarise(
@@ -369,9 +382,12 @@ if (length(existing_rda) > 0) {
   message("Removed existing .rda files")
 }
 
-# ONLY save the three main datasets that users should access
-usethis::use_data(avilist_2026, overwrite = TRUE)
-usethis::use_data(avilist_2026_short, overwrite = TRUE)
+# ONLY save the three main datasets that users should access, under their
+# versioned names (e.g. avilist_2026)
+assign(name_full, avilist)
+assign(name_short, avilist_short)
+do.call(usethis::use_data, list(as.name(name_full), overwrite = TRUE))
+do.call(usethis::use_data, list(as.name(name_short), overwrite = TRUE))
 usethis::use_data(avilist_metadata, overwrite = TRUE)
 
 message("✓ Saved three main datasets")
@@ -380,7 +396,8 @@ message("✓ Saved three main datasets")
 final_files <- list.files("data/", pattern = "\\.rda$")
 message("Final data files:", paste(final_files, collapse = ", "))
 
-# Should only be: avilist_2026.rda, avilist_2026_short.rda, avilist_metadata.rda
+# Should only be: avilist_<version>.rda, avilist_<version>_short.rda,
+# avilist_metadata.rda
 
 # =============================================================================
 # 8. CREATE DOCUMENTATION STUBS
@@ -390,66 +407,76 @@ message("Creating documentation templates...")
 
 # Create data documentation template for FULL dataset
 data_doc_template_full <- '
-#\' AviList Global Avian Checklist v2026 (Full Version)
+#\' AviList Global Avian Checklist v{version} (Full Version)
 #\'
 #\' The complete AviList dataset containing all bird species, subspecies, and
-#\' taxonomic information as of October 2026. This is the extended version with
+#\' taxonomic information as of {release}. This is the extended version with
 #\' all available fields including nomenclatural details, bibliographic
 #\' information, and external database links.
 #\'
 #\' @format A data frame with {nrow} rows and {ncol} columns.
 #\'   See avilist_metadata for detailed field descriptions.
 #\'
-#\' @source AviList Core Team. 2026. AviList: The Global Avian Checklist, v2026.
-#\'   \\doi{10.2173/avilist.v2026}
+#\' @source AviList Core Team. {version}. AviList: The Global Avian Checklist, v{version}.
+#\'   \\doi{10.2173/avilist.v{version}}
 #\'
 #\' @examples
 #\' # Load the full dataset
-#\' data(avilist_2026)
+#\' data({name})
 #\'
 #\' # View summary
-#\' str(avilist_2026)
+#\' str({name})
 
-"avilist_2026"
+"{name}"
 '
 
 # Create data documentation template for SHORT dataset
 data_doc_template_short <- '
-#\' AviList Global Avian Checklist v2026 (Short Version)
+#\' AviList Global Avian Checklist v{version} (Short Version)
 #\'
 #\' The essential fields from the AviList dataset containing core taxonomic
-#\' information for all bird species and subspecies as of October 2026. This is
+#\' information for all bird species and subspecies as of {release}. This is
 #\' the official short version provided by the AviList team, optimized for
 #\' faster loading and basic taxonomic operations.
 #\'
 #\' @format A data frame with {nrow} rows and {ncol} columns.
 #\'   See avilist_metadata for detailed field descriptions.
 #\'
-#\' @source AviList Core Team. 2026. AviList: The Global Avian Checklist, v2026.
-#\'   \\doi{10.2173/avilist.v2026}
+#\' @source AviList Core Team. {version}. AviList: The Global Avian Checklist, v{version}.
+#\'   \\doi{10.2173/avilist.v{version}}
 #\'
 #\' @examples
 #\' # Load the short dataset (faster loading)
-#\' data(avilist_2026_short)
+#\' data({name})
 #\'
 #\' # View summary
-#\' str(avilist_2026_short)
+#\' str({name})
 #\'
-"avilist_2026_short"
+"{name}"
 '
 
 # Fill in templates (without detailed field descriptions to avoid LaTeX issues)
-complete_doc_full <- str_replace_all(data_doc_template_full,
-                                     c("\\{nrow\\}" = as.character(nrow(avilist_2026)),
-                                       "\\{ncol\\}" = as.character(ncol(avilist_2026))))
+fill_doc_template <- function(template, data, name) {
+  str_replace_all(template, c(
+    "\\{name\\}" = name,
+    "\\{version\\}" = avilist_version,
+    "\\{release\\}" = paste(month.name[as.integer(format(avilist_release_date, "%m"))],
+                            format(avilist_release_date, "%Y")),
+    "\\{nrow\\}" = as.character(nrow(data)),
+    "\\{ncol\\}" = as.character(ncol(data))
+  ))
+}
 
-complete_doc_short <- str_replace_all(data_doc_template_short,
-                                      c("\\{nrow\\}" = as.character(nrow(avilist_2026_short)),
-                                        "\\{ncol\\}" = as.character(ncol(avilist_2026_short))))
+complete_doc_full <- fill_doc_template(data_doc_template_full, avilist, name_full)
+complete_doc_short <- fill_doc_template(data_doc_template_short, avilist_short, name_short)
+
+# Remove documentation files of previous versions (e.g. R/avilist_2025.R)
+old_docs <- list.files("R", pattern = "^avilist_[0-9]{4}(_short)?\\.R$", full.names = TRUE)
+file.remove(old_docs)
 
 # Write documentation files
-writeLines(complete_doc_full, "R/avilist_2026.R")
-writeLines(complete_doc_short, "R/avilist_2026_short.R")
+writeLines(complete_doc_full, file.path("R", paste0(name_full, ".R")))
+writeLines(complete_doc_short, file.path("R", paste0(name_short, ".R")))
 
 # Create avilist_metadata documentation
 metadata_doc <- '
@@ -495,25 +522,25 @@ writeLines(metadata_doc, "R/avilist_metadata.R")
 message("\n", strrep("=", 60))
 message("DATA PREPARATION COMPLETE")
 message(paste(rep("=", 60), collapse = ""))
-message(paste("Total records processed:", nrow(avilist_2026)))
-message(paste("Species count:", avilist_stats_2026$species_count))
-message(paste("Subspecies count:", avilist_stats_2026$subspecies_count))
-message(paste("Families count:", avilist_stats_2026$families_count))
-message(paste("Orders count:", avilist_stats_2026$orders_count))
-message(paste("Fields in full dataset:", ncol(avilist_2026)))
-message(paste("Fields in short dataset:", ncol(avilist_2026_short)))
+message(paste("Total records processed:", nrow(avilist)))
+message(paste("Species count:", avilist_stats$species_count))
+message(paste("Subspecies count:", avilist_stats$subspecies_count))
+message(paste("Families count:", avilist_stats$families_count))
+message(paste("Orders count:", avilist_stats$orders_count))
+message(paste("Fields in full dataset:", ncol(avilist)))
+message(paste("Fields in short dataset:", ncol(avilist_short)))
 message("\nFiles created:")
-message("- data/avilist_2026.rda")
-message("- data/avilist_2026_short.rda")
+message("- data/", name_full, ".rda")
+message("- data/", name_short, ".rda")
 message("- data/avilist_metadata.rda")
-message("- R/avilist_2026.R (full dataset documentation)")
-message("- R/avilist_2026_short.R (short dataset documentation)")
+message("- R/", name_full, ".R (full dataset documentation)")
+message("- R/", name_short, ".R (short dataset documentation)")
 message("- R/avilist_metadata.R (metadata documentation)")
 message("\nReady for package development!")
 
 # Display top families by species count (calculated on the fly)
 message("\nTop 10 families by species count:")
-print(avilist_2026 %>%
+print(avilist %>%
         filter(taxon_rank == "species") %>%
         group_by(family) %>%
         summarise(species_count = n(), .groups = "drop") %>%
